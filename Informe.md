@@ -68,3 +68,20 @@ Los pasos 2 y 3 están acoplados en el esqueleto (se descarga y parsea en la mis
 
 
 ---
+
+### c) Pasos barrera vs. pasos independientes
+
+**Pasos que son barreras de sincronización:**
+
+- **`reduceByKey` (paso 6b):** Es la única barrera real del pipeline. Para calcular el conteo total de cada entidad, Spark necesita agregar los aportes de todos los workers. Ningún worker puede producir el conteo final hasta que todos hayan terminado de emitir.
+
+- **La acción terminal (`collect` o `count`, paso 7):** Traer los resultados al driver es también una barrera, porque el driver no puede imprimir el ranking hasta que todos los workers hayan completado su trabajo.
+
+**Pasos independientes:**
+
+- Descarga y parseo de feeds (paso 2+3): cada worker procesa su propia URL sin necesitar datos de los demás
+- Filtrado de posts (paso 4): cada post se evalúa de forma aislada.
+- Detección de entidades (paso 5): el procesamiento de cada post es independiente.
+- Transformación a pares clave-valor (paso 6a): cada entidad se convierte en un par sin estar mirando a las demás
+
+---
