@@ -85,3 +85,13 @@ Los pasos 2 y 3 están acoplados en el esqueleto (se descarga y parsea en la mis
 - Transformación a pares clave-valor (paso 6a): cada entidad se convierte en un par sin estar mirando a las demás
 
 ---
+
+### d) Restricciones sobre las funciones que se pasan a Spark
+
+
+##### 1. Tienen que ser serializables
+Cuando el driver le manda una función a un worker, la tiene que convertir en bytes para enviarla por la red. Eso se llama serialización. El problema es que si la función "captura" algún objeto del contexto (por ejemplo, una conexión a base de datos, o el propio SparkContext), ese objeto también tiene que serializarse. Si no puede, Spark tira una `NotSerializableException` en runtime. 
+##### 2. No pueden usar estado compartido mutable
+Los workers no comparten memoria entre sí ni con el driver. Si en el driver tenemos por ej. un var contador = 0 y lo capturamos en un flatMap, cada worker recibe su propia copia de ese contador al momento de la serialización. Las modificaciones que haga un worker no las ve nadie más. Por eso usar variables mutables para acumular resultados da valores incorrectos. Si necesitamos que los workers reporten métricas al driver, Spark tiene los Accumulator específicamente para eso.
+##### 3. No deberían tener efectos secundarios
+Spark puede re-ejecutar una tarea que falló, o incluso ejecutar la misma tarea en dos workers distintos. Si la función tiene efectos secundarios como escribir a un archivo o imprimir por consola, esas operaciones se pueden ejecutar más de una vez o en orden distinto al esperado. Por eso los efectos secundarios tienen que estar en las acciones terminales del pipeline (collect, saveAsTextFile, etc.), no en las transformaciones intermedias.
