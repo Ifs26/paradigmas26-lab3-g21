@@ -13,8 +13,16 @@ object Main {
     val subscriptions = subscriptionOpts.flatten
 
     // Download feeds and parse posts, tracking success/failure
+
+    val baseUrl = sys.env.getOrElse("REDDIT_BASE_URL", "https://www.reddit.com")
+
+
     val downloadResults = subscriptions.map { subscription =>
-      val feedOpt = FileIO.downloadFeed(subscription.url)
+
+      val resolvedUrl = subscription.url.replaceFirst(
+        "https://www.reddit.com", baseUrl
+      )
+      val feedOpt = FileIO.downloadFeed(resolvedUrl)
       val posts = feedOpt.fold(List[Post]())(JsonParser.parsePosts(_, subscription.name))
       (feedOpt.isDefined, posts)
     }
