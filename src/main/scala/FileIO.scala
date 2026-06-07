@@ -12,15 +12,45 @@ object FileIO {
    */
   def readSubscriptions(filePath: String): List[Option[Subscription]] = {
     implicit val formats: Formats = DefaultFormats
-    val source = Source.fromFile(filePath)
-    val content = source.mkString
-    source.close()
 
-    val json = parse(content)
-    val subscriptions = json.extract[List[Map[String, String]]]
+    try {
+      val source = Source.fromFile(filePath)
+      try {
+        val content = source.mkString
+        val json = parse(content)
 
-    subscriptions.map { sub =>
-      Some(Subscription(sub("name"), sub("url")))
+        json match {
+          case JArray(items) =>
+            items.map { item =>
+              val nameOpt = (item \ "name").extractOpt[String]
+              val urlOpt = (item \ "url").extractOpt[String]
+              (nameOpt, urlOpt) match {
+                case (Some(name), Some(url)) => Some(Subscription(name, url))
+                case _ =>
+                  println("Warning: Skipping malformed subscription (missing 'name' or 'url' field)")
+                  None
+              }
+            }
+          case _ =>
+            println(s"Error: Could not load $filePath - invalid JSON format")
+            Nil
+        }
+      } finally {
+        source.close()
+      }
+    } catch {
+      case _: java.io.FileNotFoundException =>
+        println(s"Error: Could not load $filePath - file not found")
+        Nil
+      case _: org.json4s.ParserUtil.ParseException =>
+        println(s"Error: Could not load $filePath - invalid JSON format")
+        Nil
+      case _: MappingException =>
+        println(s"Error: Could not load $filePath - invalid JSON format")
+        Nil
+      case _: Exception =>
+        println(s"Error: Could not load $filePath - invalid JSON format")
+        Nil
     }
   }
 
