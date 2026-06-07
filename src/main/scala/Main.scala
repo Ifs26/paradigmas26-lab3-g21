@@ -16,13 +16,14 @@ object Main {
 
     // Filter out malformed subscriptions (None values)
     val subscriptions = subscriptionOpts.flatten
+    val subsRDD = sc.parallelize(subscriptions)
 
     // Download feeds and parse posts, tracking success/failure
 
     val baseUrl = sys.env.getOrElse("REDDIT_BASE_URL", "https://www.reddit.com")
 
 
-    val downloadResults = subscriptions.map { subscription =>
+    val downloadResults = subsRDD.map { subscription =>
 
       val resolvedUrl = subscription.url.replaceFirst(
         "https://www.reddit.com", baseUrl
@@ -30,7 +31,7 @@ object Main {
       val feedOpt = FileIO.downloadFeed(resolvedUrl)
       val posts = feedOpt.fold(List[Post]())(JsonParser.parsePosts(_, subscription.name))
       (feedOpt.isDefined, posts)
-    }
+    }.collect().toList
 
     // Count feed successes/failures
     val feedsSuccess = downloadResults.count(_._1)
