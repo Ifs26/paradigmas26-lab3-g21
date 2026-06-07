@@ -1,3 +1,5 @@
+import org.apache.spark.sql.SparkSession
+
 object Main {
   def main(args: Array[String]): Unit = {
     // Parse command-line arguments
@@ -5,6 +7,9 @@ object Main {
       case Some(parsed) => parsed
       case None => return // scopt prints error messages
     }
+
+    val spark = SparkSession.builder().appName("RedditNER").master("local[*]").getOrCreate()
+    val sc = spark.sparkContext
 
     // Load subscriptions
     val subscriptionOpts = FileIO.readSubscriptions(cmdArgs.subscriptionFile)
@@ -80,5 +85,7 @@ object Main {
     println(Formatters.formatTypeStats(typeStats))
     println()
     println(Formatters.formatEntityStats(entityCounts, cmdArgs.topK))
+
+    spark.stop()
   }
 }
