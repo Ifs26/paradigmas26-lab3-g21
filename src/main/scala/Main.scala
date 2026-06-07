@@ -16,6 +16,10 @@ object Main {
 
     // Filter out malformed subscriptions (None values)
     val subscriptions = subscriptionOpts.flatten
+    if (subscriptions.isEmpty) {
+      println("Error: No valid subscriptions found")
+      return
+    }
     val subsRDD = sc.parallelize(subscriptions)
 
     // Accumulators for monitored statistics
@@ -91,6 +95,12 @@ object Main {
     }
 
     // Load dictionaries
+    val entitiesDirFile = new java.io.File(cmdArgs.entitiesDir)
+    if (!entitiesDirFile.exists() || !entitiesDirFile.isDirectory) {
+      println(s"Error: entities directory '${cmdArgs.entitiesDir}' not found")
+      return
+    }
+
     val dictionary = Dictionary.loadAll(cmdArgs.entitiesDir)
 
     // Detect entities in all posts (combine title and selftext)
