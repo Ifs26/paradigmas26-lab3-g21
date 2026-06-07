@@ -18,29 +18,49 @@ object Main {
     val subscriptions = subscriptionOpts.flatten
     val subsRDD = sc.parallelize(subscriptions)
 
-    // Download feeds and parse posts, tracking success/failure
+    // Accumulators for monitored statistics
+    val accFeedsSuccess = sc.longAccumulator("feedsSuccess")
+    val accFeedsFailed = sc.longAccumulator("feedsFailed")
+    val accPostsDownloaded = sc.longAccumulator("postsDownloaded")
+    val accPostGroupsFailed = sc.longAccumulator("postGroupsFailed")
 
+    // Download feeds and parse posts, tracking success/failure
     val baseUrl = sys.env.getOrElse("REDDIT_BASE_URL", "https://www.reddit.com")
 
+    val postsRDD = subsRDD.flatMap { subscription =>
+      try {
+        val resolvedUrl = subscription.url.replaceFirst("https://www.reddit.com", baseUrl)
+        FileIO.downloadFeed(resolvedUrl) match {
+          case None =>
+            accFeedsFailed.add(1)
+            println(s"Warning: Failed to download from '${subscription.name}' (${subscription.url})")
+            Seq.empty[Post]
+          case Some(json) =>
+            accFeedsSuccess.add(1)
+            val posts = try {
+              JsonParser.parsePosts(json, subscription.name)
+            } catch {
+              case _: Exception =>
+                println(s"Warning: Failed to parse posts from '${subscription.name}' (${subscription.url})")
+                Seq.empty[Post]
+            }
+            if (posts.isEmpty) accPostGroupsFailed.add(1)
+            else accPostsDownloaded.add(posts.size)
+            posts
+        }
+      } catch {
+        case _: Exception =>
+          accFeedsFailed.add(1)
+          println(s"Warning: Failed to download from '${subscription.name}' (${subscription.url})")
+          Seq.empty[Post]
+      }
+    }
 
-    val downloadResults = subsRDD.map { subscription =>
-
-      val resolvedUrl = subscription.url.replaceFirst(
-        "https://www.reddit.com", baseUrl
-      )
-      val feedOpt = FileIO.downloadFeed(resolvedUrl)
-      val posts = feedOpt.fold(List[Post]())(JsonParser.parsePosts(_, subscription.name))
-      (feedOpt.isDefined, posts)
-    }.collect().toList
-
-    // Count feed successes/failures
-    val feedsSuccess = downloadResults.count(_._1)
-    val feedsFailed = downloadResults.length - feedsSuccess
-
-    // Flatten all posts and count JSON parse failures
-    val allPosts = downloadResults.flatMap(_._2)
+    val allPosts = postsRDD.collect().toList
+    val feedsSuccess = accFeedsSuccess.value.toInt
+    val feedsFailed = accFeedsFailed.value.toInt
     val postsSuccess = allPosts.length
-    val postsFailed = downloadResults.count(_._2.isEmpty)
+    val postsFailed = accPostGroupsFailed.value.toInt
 
     // Filter empty posts
     val filteredPosts = Analyzer.filterEmptyPosts(allPosts)
