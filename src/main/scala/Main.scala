@@ -54,21 +54,21 @@ object Main {
           println(s"Warning: Failed to download from '${subscription.name}' (${subscription.url})")
           Seq.empty[Post]
       }
-    }
+    }.cache()
 
-    val allPosts = postsRDD.collect().toList
     val feedsSuccess = accFeedsSuccess.value.toInt
     val feedsFailed = accFeedsFailed.value.toInt
-    val postsSuccess = allPosts.length
+    val postsSuccess = postsRDD.count().toInt
     val postsFailed = accPostGroupsFailed.value.toInt
 
-    // Filter empty posts
-    val filteredPosts = Analyzer.filterEmptyPosts(allPosts)
-    val postsFiltered = allPosts.length - filteredPosts.length
+    val filteredRDD = postsRDD.filter(post => post.title.nonEmpty && post.selftext.nonEmpty && post.selftext.trim.nonEmpty).cache()
+    val filteredCount = filteredRDD.count().toInt
+    val postsFiltered = postsSuccess - filteredCount
 
-    // Calculate average characters in filtered posts
-    val totalChars = filteredPosts.map(post => post.title.length + post.selftext.length).sum
-    val avgChars = if (filteredPosts.nonEmpty) totalChars / filteredPosts.length else 0
+    val totalChars = if (filteredCount > 0) filteredRDD.map(post => post.title.length + post.selftext.length).reduce(_ + _) else 0
+    val avgChars = if (filteredCount > 0) totalChars / filteredCount else 0
+
+    val filteredPosts = filteredRDD.collect().toList
 
     // Prepare statistics
     val stats = Map(
