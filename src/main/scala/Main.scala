@@ -60,9 +60,10 @@ object Main {
       }
     }.cache()
 
+    val postsSuccess = postsRDD.count().toInt
+    
     val feedsSuccess = accFeedsSuccess.value.toInt
     val feedsFailed = accFeedsFailed.value.toInt
-    val postsSuccess = postsRDD.count().toInt
     val postsFailed = accPostGroupsFailed.value.toInt
 
     val filteredRDD = postsRDD.filter(post => post.title.nonEmpty && post.selftext.nonEmpty && post.selftext.trim.nonEmpty).cache()
