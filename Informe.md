@@ -204,6 +204,13 @@ Directorio de entidades inexistente → Error: entities directory '$entitiesDir'
 
 •⁠  ⁠URL sin respuesta → Warning: Failed to download from '${subscription.name}' (${subscription.url})
 
+### Decisiones de diseño
+Elegimos flatMap para la descarga porque es la abstracción natural cuando cada elemento de entrada (una suscripción) puede producir cero o muchos elementos de salida (los posts) y en cuanto al manejo de errores decidimos capturarlos dentro del flatMap en lugar de dejar que se propaguen.
+
+Qué pasa si dejamos propagar la excepción? Si una excepción escapa de la función que se le pasa al flatMap, Spark la trata como un fallo de la tarea y la reintenta automáticamente. Si el error sigue, el job completo falla y no se produce ningún resultado, aunque el resto de las suscripciones fueran descargables. Capturando la excepción internamente, podemos devolver una Seq vacía para esa suscripción, incrementar el acumulador de fallos y seguir adelante con las demás.
+
+Y al final el filtrado de posts vacíos se hace lo antes posible para no arrastrar trabajo innecesario al resto del pipeline.
+
 ## Ejercicio 3 — Paralelizar el cómputo de entidades nombradas (Luca)
 
 El siguiente fragmento engloba la resolución general del ejercicio:
