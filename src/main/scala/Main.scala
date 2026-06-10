@@ -106,6 +106,7 @@ object Main {
     val dictionary = Dictionary.loadAll(cmdArgs.entitiesDir)
     
     /*---- EJERCICIO 3 --------------------------------*/
+    // FASE MAP
     val filteredPostsRDD = filteredRDD
       .flatMap{ post => //Serialización
         try{
@@ -122,6 +123,7 @@ object Main {
     val pairDataEntityOne = filteredPostsRDD
       .map(entity => ((entity.entityType, entity.text),1))
 
+    //FASE REDUCE
     val reducedEntities = pairDataEntityOne
       .reduceByKey(_ + _)
       .sortBy(x => (-x._2, x._1._1)) // Ordenado por conteo descendente y por tipo

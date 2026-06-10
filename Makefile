@@ -28,6 +28,8 @@ run: setup compile
 	$(SBT) run
 
 mock: setup compile
-	REDDIT_BASE_URL=http://localhost:8123 $(SBT) run
+	REDDIT_BASE_URL=http://localhost:8123 $(SBT) "run $(ARGS)"
+
+# make mock ARGS="--subscription-file many_subscriptions.json"
 
 .PHONY: check-java setup compile run

@@ -8,9 +8,9 @@ ThisBuild / classLoaderLayeringStrategy := ClassLoaderLayeringStrategy.Flat
 
 fork := true
 
-javaOptions in run ++= Seq(
-  "-DREDDIT_BASE_URL=http://localhost:8123"
-)
+//javaOptions in run ++= Seq(
+//  "-DREDDIT_BASE_URL=http://localhost:8123"
+//)
 
 ThisBuild / javaOptions ++= Seq(
   "--add-exports=java.base/sun.nio.ch=ALL-UNNAMED",
