@@ -14,7 +14,8 @@ javaOptions in run ++= Seq(
 
 ThisBuild / javaOptions ++= Seq(
   "--add-exports=java.base/sun.nio.ch=ALL-UNNAMED",
-  "--add-opens=java.base/java.nio=ALL-UNNAMED"
+  "--add-opens=java.base/java.nio=ALL-UNNAMED",
+  "--add-opens=java.base/sun.security.action=ALL-UNNAMED"
 )
 
 libraryDependencies ++= Seq(
