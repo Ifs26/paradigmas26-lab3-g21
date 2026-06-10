@@ -316,6 +316,41 @@ La diferencia con mandar el closure normal es:
 
 Para un diccionario chico no importa, por lo que no la implementamos. Sin embargo para datos grandes es una optimización importante y debe ser tenida en consideración.
 
+## Ejercicio 4 - Monitoreo del éxito de las tareas (Santi)
+
+
+### ¿Por qué los Accumulators solo deben usarse para métricas y no para tomar decisiones lógicas dentro de las etapas distribuidas del pipeline? ¿En qué situación un Accumulator puede dar un valor incorrecto?
+
+Los Accumulators solo pueden ser incrementados por los workers y leídos por el driver, pero su valor no está garantizado durante la ejecución del pipeline. Si un task falla y se reintenta, el acumulador puede incrementarse más de una vez para el mismo dato. Por eso usarlos para tomar decisiones lógicas dentro de un worker puede dar resultados incorrectos o no reproducibles.
+
+
+### ¿En qué momento del pipeline está disponible el valor de un Accumulator para ser leído por el driver?
+
+El valor de un acumulador está disponible para ser leído por el drive recién después de que una acción terminal completa (count(), collect(), entre otros). Mientras el pipeline está en ejecución, el driver no puede leer un valor.
+
+
+### Comparen el tiempo que tarda cada etapa del pipeline que midieron en la versión no paralelizada y la versión con Spark. ¿Qué conclusiones pueden sacar? Para la cantidad de datos que estamos trabajando, ¿se aprecia la diferencia? Justifique por qué.
+
+Para aclarar, Spark fue diseñado para conjunto de datos inmensos, donde podrían entrar tranquilamente un millón de posts. En nuestro laboratorio, se trabaja con unos pocos cientos de posts, por lo que la carga que realiza Spark es mayor a una búsqueda secuencial en estos casos. Por ende, el tiempo de carga en este laboratorio resulta mayor que si hubiéramos utilizado la versión no paralelizada, con una diferencia aproximada de 6,4 segundos (6,7 Spark y 300ms como mucho en la versión no paralelizada). En conclusión, no es recomendable utilizar Spark con conjunto de datos pequeños, en este caso posts de reddit, sino no sería eficiente en el tiempo de carga en comparación con la otra versión.
+
+## Ejercicio 5 - Acceso a datos y estadísticas del resultado (santi)
+
+### ¿Qué ocurriría si no llamaran a cache()? ¿Cuántas veces se ejecutaría la descarga de feeds?
+
+Sin cache(), cada acción terminal sobre el RDD recomputaría todo el pipeline desde el principio, incluyendo las descargas HTTP. En nuestro caso postRDD se usa en count() y luego en filter(), por lo que la descarga se ejecutaría dos veces.
+
+
+### ¿Por qué es incorrecto llamar a collect() entre los pasos a y b del ejercicio 3 y luego continuar el pipeline? ¿Qué consecuencia tiene sobre la distribución del trabajo?
+
+Porque collect() trae todos los datos al driver, y el paso b (el map) se ejecutaría localmente en el driver en lugar de distribuirse entre los workers. Esto rompe el modelo de Spark: en lugar de que cada worker procese su partición de entidades en paralelo, el driver tendría que procesar el total de entidades solo y de forma secuencial, perdiendo toda la ventaja de la distribución.
+
+
+### cache() es también lazy. ¿En qué momento se almacena realmente el RDD en memoria?
+
+Cache almacena realmente el RDD en memoria cuando se ejecuta la primera acción terminal (ejemplo: postRDD.count()), Spark ejecuta todo el pipeline, devuelve el resultado y se guarda el RDD en memoria. Desde la segunda llamada, directamente se busca en memoria.
+
+
+
 ### Decisiones de diseño
 
 #### 1: `countEntities` y `countByType` quedan obsoletas para este pipeline. 
