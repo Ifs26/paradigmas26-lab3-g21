@@ -72,13 +72,19 @@ object FileIO {
    * @return Option containing list of entities, None if file missing
    */
   def readDictionaryFile(filePath: String): Option[List[String]] = {
-    val source = Source.fromFile(filePath)
-    val lines = source.getLines()
-      .map(_.trim)
-      .filter(_.nonEmpty)
-      .filterNot(_.startsWith("#"))
-      .toList
-    source.close()
-    Some(lines)
+    try {
+      val source = Source.fromFile(filePath)
+      val lines = source.getLines()
+        .map(_.trim)
+        .filter(_.nonEmpty)
+        .filterNot(_.startsWith("#"))
+        .toList
+      source.close()
+      Some(lines)
+    } catch {
+      case _: Exception =>
+        println(s"Warning: Could not load $filePath")
+        None
+    }
   }
 }
