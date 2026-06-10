@@ -60,8 +60,9 @@ object Main {
       }
     }.cache()
 
+    /*Todo RDD en Spark es lazy por defecto, por eso esto debe ir primero*/
     val postsSuccess = postsRDD.count().toInt
-    
+
     val feedsSuccess = accFeedsSuccess.value.toInt
     val feedsFailed = accFeedsFailed.value.toInt
     val postsFailed = accPostGroupsFailed.value.toInt
@@ -103,20 +104,35 @@ object Main {
     }
 
     val dictionary = Dictionary.loadAll(cmdArgs.entitiesDir)
+    
+    /*---- EJERCICIO 3 --------------------------------*/
+    val filteredPostsRDD = filteredRDD
+      .flatMap{ post => //Serialización
+        try{
+          val entitiesFromPost = Analyzer.detectEntities(post.title + " " + post.selftext, dictionary)
+          entitiesFromPost
+        } 
+        catch{
+          case e: Exception =>
+            println(s"Warning: Failed to count a post (${e})")
+            List.empty[NamedEntity]
+        }
+      }
 
-    // Detect entities in all posts (combine title and selftext)
-    val allEntities = filteredPosts.flatMap { post =>
-      val combinedText = post.title + " " + post.selftext
-      Analyzer.detectEntities(combinedText, dictionary)
-    }
+    val pairDataEntityOne = filteredPostsRDD
+      .map(entity => ((entity.entityType, entity.text),1))
 
-    // Count entities
-    val entityCounts = Analyzer.countEntities(allEntities)
-    val typeStats = Analyzer.countByType(allEntities)
-
-    println(Formatters.formatTypeStats(typeStats))
+    val reducedEntities = pairDataEntityOne
+      .reduceByKey(_ + _)
+      .sortBy(x => (-x._2, x._1._1)) // Ordenado por conteo descendente y por tipo
+    
+    val entitiesList = reducedEntities
+      .collect //Trae los datos de los worker al driver
+      .toList
+    
+    println(Formatters.formatTypeStatsDistributed(entitiesList))
     println()
-    println(Formatters.formatEntityStats(entityCounts, cmdArgs.topK))
+    println(Formatters.formatEntityStats(entitiesList.toMap, cmdArgs.topK))
 
     spark.stop()
   }

@@ -23,6 +23,7 @@ Largo promedio en posts: $avgChars"""
   }
 
   /**
+   * DESPRECIADA
    * Format entity type statistics for console output.
    * @param typeStats map from entityType to count (including "total" key)
    * @return formatted entity statistics string
@@ -62,5 +63,33 @@ $typeLines"""
 
     s"""============ ENTIDADES NOMBRADAS MÁS FRECUENTES ============
 $formatted"""
+  }
+
+  /**
+   * Format entity type statistics for console output with data obteined from a distributed system.
+   * @param typeStats map from entityType to count (including "total" key)
+   * @return formatted entity statistics string
+   */
+  def formatTypeStatsDistributed(entitiesList: List[((String,String),Int)]): String = {
+
+    val reduced = entitiesList.map{entity => (entity._1._1,entity._2)} //List[tipo,cantidad]
+    val grouped = reduced.groupBy(_._1)//Map[tipo,(tipo,cantidad)]
+    val totalPerTypeMap = grouped//Map[tipo,cantidad total]
+    .map{ 
+      case (tipo, xs) => (tipo, xs.map(_._2).sum) // sumar cantidades
+    }
+
+    val entityTypes = List("Person", "Organization", "University", "Place", "Technology", "ProgrammingLanguage")
+    val typeLines = entityTypes.map { entityType => 
+      val count = totalPerTypeMap.get(entityType).getOrElse(0)
+      s"    [${entityType}]: ${count}"
+    }.mkString("\n")
+
+    val allTotals = totalPerTypeMap.values.sum
+
+    s"""============ ESTADÍSTICAS DE ENTIDADES ============
+Entidades totales: $allTotals
+Entidades por categoría:
+$typeLines"""  
   }
 }

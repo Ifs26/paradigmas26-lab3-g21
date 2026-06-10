@@ -30,6 +30,7 @@ object Analyzer {
   }
 
   /**
+   * DESPRECIADA
    * Count occurrences of each entity (grouped by type and name).
    * @param entities list of detected entities
    * @return map from (entityType, entityName) to count
@@ -43,6 +44,7 @@ object Analyzer {
   }
 
   /**
+   * DESPRECIADA
    * Count total entities and entities by type.
    * @param entities list of detected entities
    * @return map with "total" key and one key per entity type
