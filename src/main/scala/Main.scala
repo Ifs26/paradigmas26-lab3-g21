@@ -61,14 +61,22 @@ object Main {
     }.cache()
 
     /*Todo RDD en Spark es lazy por defecto, por eso esto debe ir primero*/
+    val t0 = System.currentTimeMillis()
     val postsSuccess = postsRDD.count().toInt
+    val t1 = System.currentTimeMillis()
+    println(s"[Tiempo] Descarga de feeds: ${(t1 - t0) / 1000.0} segundos")
 
     val feedsSuccess = accFeedsSuccess.value.toInt
     val feedsFailed = accFeedsFailed.value.toInt
     val postsFailed = accPostGroupsFailed.value.toInt
 
     val filteredRDD = postsRDD.filter(post => post.title.nonEmpty && post.selftext.nonEmpty && post.selftext.trim.nonEmpty).cache()
+
+    val t2 = System.currentTimeMillis()
     val filteredCount = filteredRDD.count().toInt
+    val t3 = System.currentTimeMillis()
+    println(s"[Tiempo] Filtrado de posts: ${(t3 - t2) / 1000.0} segundos")
+
     val postsFiltered = postsSuccess - filteredCount
 
     val totalChars = if (filteredCount > 0) filteredRDD.map(post => post.title.length + post.selftext.length).reduce(_ + _) else 0
@@ -128,9 +136,13 @@ object Main {
       .reduceByKey(_ + _)
       .sortBy(x => (-x._2, x._1._1)) // Ordenado por conteo descendente y por tipo
     
+    val t4 = System.currentTimeMillis()
     val entitiesList = reducedEntities
       .collect //Trae los datos de los worker al driver
       .toList
+    val t5 = System.currentTimeMillis()
+    
+    println(s"[Tiempo] Conteo de entidades: ${(t5 - t4) / 1000.0} segundos")
     
     println(Formatters.formatTypeStatsDistributed(entitiesList))
     println()
