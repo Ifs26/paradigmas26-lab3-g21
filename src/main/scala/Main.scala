@@ -61,10 +61,10 @@ object Main {
     }.cache()
 
     /*Todo RDD en Spark es lazy por defecto, por eso esto debe ir primero*/
-    val t0 = System.currentTimeMillis()
+    val t0 = System.currentTimeMillis()  //inicio de descarga de feeds
     val postsSuccess = postsRDD.count().toInt
-    val t1 = System.currentTimeMillis()
-    println(s"[Tiempo] Descarga de feeds: ${(t1 - t0) / 1000.0} segundos")
+    val t1 = System.currentTimeMillis() //fin de descarga de feeds
+    println(s"[Tiempo] Descarga de feeds: ${(t1 - t0) / 1000.0} segundos") //Tiempo de descarga de feeds (/1000 para convertir a segundos)
 
     val feedsSuccess = accFeedsSuccess.value.toInt
     val feedsFailed = accFeedsFailed.value.toInt
@@ -72,10 +72,12 @@ object Main {
 
     val filteredRDD = postsRDD.filter(post => post.title.nonEmpty && post.selftext.nonEmpty && post.selftext.trim.nonEmpty).cache()
 
-    val t2 = System.currentTimeMillis()
+    val t2 = System.currentTimeMillis() //inicio de filtrado de posts
     val filteredCount = filteredRDD.count().toInt
-    val t3 = System.currentTimeMillis()
-    println(s"[Tiempo] Filtrado de posts: ${(t3 - t2) / 1000.0} segundos")
+    val t3 = System.currentTimeMillis() //fin de filtrado de posts
+    println(s"[Tiempo] Filtrado de posts: ${(t3 - t2) / 1000.0} segundos") //Tiempo de filtrado de posts (/1000 para convertir a segundos)
+
+    postsRDD.unpersist()  // ya no lo necesitamos más
 
     val postsFiltered = postsSuccess - filteredCount
 
@@ -127,6 +129,7 @@ object Main {
             List.empty[NamedEntity]
         }
       }
+    
 
     val pairDataEntityOne = filteredPostsRDD
       .map(entity => ((entity.entityType, entity.text),1))
@@ -136,13 +139,15 @@ object Main {
       .reduceByKey(_ + _)
       .sortBy(x => (-x._2, x._1._1)) // Ordenado por conteo descendente y por tipo
     
-    val t4 = System.currentTimeMillis()
+    val t4 = System.currentTimeMillis() //inicio de conteo de entidades
     val entitiesList = reducedEntities
       .collect //Trae los datos de los worker al driver
       .toList
-    val t5 = System.currentTimeMillis()
-    
-    println(s"[Tiempo] Conteo de entidades: ${(t5 - t4) / 1000.0} segundos")
+    val t5 = System.currentTimeMillis() //fin de conteo de entidades
+
+    filteredRDD.unpersist()  // ya no lo necesitamos más
+
+    println(s"[Tiempo] Conteo de entidades: ${(t5 - t4) / 1000.0} segundos") //Tiempo de conteo de entidades (/1000 para convertir a segundos)
     
     println(Formatters.formatTypeStatsDistributed(entitiesList))
     println()
