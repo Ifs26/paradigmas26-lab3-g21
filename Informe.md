@@ -95,3 +95,41 @@ Cuando el driver le manda una función a un worker, la tiene que convertir en by
 Los workers no comparten memoria entre sí ni con el driver. Si en el driver tenemos por ej. un var contador = 0 y lo capturamos en un flatMap, cada worker recibe su propia copia de ese contador al momento de la serialización. Las modificaciones que haga un worker no las ve nadie más. Por eso usar variables mutables para acumular resultados da valores incorrectos. Si necesitamos que los workers reporten métricas al driver, Spark tiene los Accumulator específicamente para eso.
 ##### 3. No deberían tener efectos secundarios
 Spark puede re-ejecutar una tarea que falló, o incluso ejecutar la misma tarea en dos workers distintos. Si la función tiene efectos secundarios como escribir a un archivo o imprimir por consola, esas operaciones se pueden ejecutar más de una vez o en orden distinto al esperado. Por eso los efectos secundarios tienen que estar en las acciones terminales del pipeline (collect, saveAsTextFile, etc.), no en las transformaciones intermedias.
+
+## Ejercicio 2 — Paralelizar la descarga de feeds
+En Main.scala se creó una SparkSession configurada en modo local:
+
+
+scalaval spark = SparkSession.builder()
+   .appName("RedditNER")
+   .master("local[*]")
+   .getOrCreate()
+val sc = spark.sparkContext
+
+
+### Implementación
+*a)* Las suscripciones se leen del archivo indicado y se paralelizan con sc.parallelize(subscriptions), lo que crea un RDD de Subscription listo para distribuirse entre los workers.
+
+*b)* Sobre ese RDD se aplica un flatMap que, por cada Subscription, descarga el feed y retorna una Seq[Post]. Las excepciones se manejan dentro de la función del flatMap para que un fallo en una suscripción no cancele el procesamiento de las demás (ver más abajo la pregunta conceptual sobre esto).
+
+*c)* Para las métricas se usan acumuladores (sc.longAccumulator) que cuentan feeds exitosos y fallidos, posts descargados y fallidos, posts filtrados, y la suma de caracteres para calcular el promedio. Estos valores se imprimen al final con el mismo formato que el esqueleto.
+
+*d)* Si después del filtrado por title y selftext no queda ningún post válido, el programa imprime Error: No valid posts downloaded after filtering y termina.
+
+### Casos de error cubiertos
+
+•⁠  ⁠Suscripción sin name o url → Warning: Skipping malformed subscription (missing 'name' or 'url' field)
+
+•⁠  ⁠Archivo de suscripciones inexistente → Error: Could not load $filePath - file not found
+
+•⁠  ⁠Archivo de suscripciones con JSON inválido → Error: Could not load $filePath - invalid JSON format
+
+•⁠  ⁠Sin suscripciones válidas → Error: No valid subscriptions found (el programa termina)
+Directorio de entidades inexistente → Error: entities directory '$entitiesDir' not found
+
+•⁠  ⁠Archivo de entidad no encontrado → Warning: Could not load $entitiesDir/people.txt (y análogos)
+
+•⁠  ⁠Posts de una suscripción no parseables → Warning: Failed to parse posts from '${subscription.name}' (${subscription.url})
+
+•⁠  ⁠URL sin respuesta → Warning: Failed to download from '${subscription.name}' (${subscription.url})
+
