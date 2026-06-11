@@ -29,12 +29,11 @@ object Main {
     val accPostGroupsFailed = sc.longAccumulator("postGroupsFailed")
 
     // Download feeds and parse posts, tracking success/failure
-    val baseUrl = sys.env.getOrElse("REDDIT_BASE_URL", "https://www.reddit.com")
 
     val postsRDD = subsRDD.flatMap { subscription =>
       try {
-        val resolvedUrl = subscription.url.replaceFirst("https://www.reddit.com", baseUrl)
-        FileIO.downloadFeed(resolvedUrl) match {
+        val feedOpt = FileIO.downloadFeed(subscription.url)
+        feedOpt match {
           case None =>
             accFeedsFailed.add(1)
             println(s"Warning: Failed to download from '${subscription.name}' (${subscription.url})")
