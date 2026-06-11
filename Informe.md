@@ -1,5 +1,18 @@
 # Informe — Laboratorio 3: Procesamiento distribuido con Apache Spark
 
+## Integrantes
+
+* Luca Lorenzatti
+* Santiago Issetta
+* Fernando Lara
+* Maximiliano Castelle
+
+## Link de la consigna
+
+[Consigna de laboratorio 3](https://docs.google.com/document/d/10dHff0_UhUOBF0A1o-m4XAN_t6xrtUWy_r60e5TZ7Gk/edit?tab=t.0)
+
+# Ejercicios
+
 ## Ejercicio 1 — Identificar las regiones paralelizables
 
 ### a) Diagrama de flujo del pipeline
@@ -95,77 +108,6 @@ Cuando el driver le manda una función a un worker, la tiene que convertir en by
 Los workers no comparten memoria entre sí ni con el driver. Si en el driver tenemos por ej. un var contador = 0 y lo capturamos en un flatMap, cada worker recibe su propia copia de ese contador al momento de la serialización. Las modificaciones que haga un worker no las ve nadie más. Por eso usar variables mutables para acumular resultados da valores incorrectos. Si necesitamos que los workers reporten métricas al driver, Spark tiene los Accumulator específicamente para eso.
 ##### 3. No deberían tener efectos secundarios
 Spark puede re-ejecutar una tarea que falló, o incluso ejecutar la misma tarea en dos workers distintos. Si la función tiene efectos secundarios como escribir a un archivo o imprimir por consola, esas operaciones se pueden ejecutar más de una vez o en orden distinto al esperado. Por eso los efectos secundarios tienen que estar en las acciones terminales del pipeline (collect, saveAsTextFile, etc.), no en las transformaciones intermedias.
-
-## Makefile
-El makefile planteado por el grupo fue el siguiente:
-
-```makefile
-# Variables
-JAVA_HOME := /usr/lib/jvm/java-17-openjdk-amd64
-PATH      := $(JAVA_HOME)/bin:$(PATH)
-SBT_OPTS  := --add-exports=java.base/sun.nio.ch=ALL-UNNAMED
-SBT       := sbt
-
-export JAVA_HOME
-export PATH
-export SBT_OPTS
-
-.DEFAULT_GOAL := run
-
-# --- Comandos previos ---
-
-check-java:
-	@echo "Verificando Java 17..."
-	@java -version 2>&1 | grep -q "17" || (echo "ERROR: Java 17 no encontrado en $(JAVA_HOME)" && exit 1)
-
-setup: check-java
-	@echo "Setup listo."
-
-compile: check-java
-	$(SBT) compile
-
-# --- Target principal ---
-
-run: setup compile
-	$(SBT) run
-
-mock: setup compile
-	REDDIT_BASE_URL=http://localhost:8123 $(SBT) "run $(ARGS)"
-
-# make mock ARGS="--subscription-file many_subscriptions.json"
-
-.PHONY: check-java setup compile run
-```
-**Variables de entorno**
-
-Define `JAVA_HOME` apuntando a Java 17, agrega el bin de Java al `PATH`, y configura `SBT_OPTS` con un flag para que Spark pueda acceder a módulos internos de la JVM. Las tres se exportan para que estén disponibles en los subprocesos que lanza Make.
-
-**Targets**
-
-- `check-java`: verifica que Java 17 esté disponible ejecutando `java -version` y buscando "17" en la salida. Si no lo encuentra, falla con un mensaje de error.
-- `setup`: depende de `check-java`, imprime "Setup listo." como confirmación.
-- `compile`: depende de `check-java` y ejecuta `sbt compile`.
-- `run`: depende de `setup` y `compile`, ejecuta `sbt run` con los defaults de `CommandLineArgs`.
-- `mock`: igual que `run` pero setea `REDDIT_BASE_URL=http://localhost:8123` inline para que la app apunte al servidor mock local en lugar de Reddit real. Acepta un parámetro opcional `ARGS` para pasar argumentos al programa y probar tests, por ejemplo `--subscription-file many_subscriptions.json`.
-
-El target por defecto es `run`.
-
-## Cambios en build.sbt
-Se agregaron:
-
-**flag `"--add-opens=java.base/java.nio=ALL-UNNAMED"`**
-
-Se introdujo siguiendo el modelo de build.sbt de Hello_world. Spark 4.1.1 usa reflection para acceder a paquetes internos de la JVM (java.nio, sun.security.action) que Java 17 bloquea por defecto con el sistema de módulos (JPMS). Se agregaron flags --add-opens para abrir explícitamente esos paquetes, permitiendo que Spark funcione sin modificar su código fuente.
-
-**flag `"--add-opens=java.base/sun.security.action=ALL-UNNAMED"`**
-
-Spark fue escrito antes de Java 9. Su SerializationDebugger usa reflection para inspeccionar objetos al momento de serializarlos — mira los campos, los tipos, etc. Para hacer eso con clases internas de la JVM, usa MethodHandles y reflection que en Java 8 funcionaban sin restricciones. En Java 17, esas mismas llamadas fallan con IllegalAccessException porque el módulo java.base no le da permiso a código externo de acceder a sun.security.action.
-
-El flag le dice a la JVM explícitamente: "abrí el paquete sun.security.action del módulo java.base para que cualquier código en módulos sin nombre pueda acceder a él con reflection". ALL-UNNAMED significa "cualquier código que no esté en un módulo nombrado" — que es exactamente donde cae Spark.
-
-**Dependencias `"org.apache.spark" %% "spark-core" % "4.1.1"` y `"org.apache.spark" %% "spark-sql" % "4.1.1"`**
-
-Agregan Spark como dependencia. `spark-core` provee el `SparkContext` y los RDDs. `spark-sql` provee `SparkSession`, que es el punto de entrada moderno para arrancar Spark.
 
 ## Ejercicio 2 — Paralelizar la descarga de feeds
 En Main.scala se creó una SparkSession configurada en modo local:
@@ -351,7 +293,7 @@ Cache almacena realmente el RDD en memoria cuando se ejecuta la primera acción 
 
 
 
-### Decisiones de diseño
+# Decisiones de diseño
 
 #### 1: `countEntities` y `countByType` quedan obsoletas para este pipeline. 
 
@@ -385,3 +327,74 @@ La razón por la que Spark necesita es que, cuando el closure del flatMap captur
 
 Se implementa el manejo de excepcines para aislar fallos por post y evitar que un error individual no cancele el job completo.
 
+# Makefile
+El makefile planteado por el grupo fue el siguiente:
+
+```makefile
+# Variables
+JAVA_HOME := /usr/lib/jvm/java-17-openjdk-amd64
+PATH      := $(JAVA_HOME)/bin:$(PATH)
+SBT_OPTS  := --add-exports=java.base/sun.nio.ch=ALL-UNNAMED
+SBT       := sbt
+
+export JAVA_HOME
+export PATH
+export SBT_OPTS
+
+.DEFAULT_GOAL := run
+
+# --- Comandos previos ---
+
+check-java:
+	@echo "Verificando Java 17..."
+	@java -version 2>&1 | grep -q "17" || (echo "ERROR: Java 17 no encontrado en $(JAVA_HOME)" && exit 1)
+
+setup: check-java
+	@echo "Setup listo."
+
+compile: check-java
+	$(SBT) compile
+
+# --- Target principal ---
+
+run: setup compile
+	$(SBT) run
+
+mock: setup compile
+	$(SBT) "run --subscription-file ./data/local_subscriptions.json"
+
+tests: setup
+	bash tests.sh
+
+.PHONY: check-java setup compile run
+```
+**Variables de entorno**
+
+Define `JAVA_HOME` apuntando a Java 17, agrega el bin de Java al `PATH`, y configura `SBT_OPTS` con un flag para que Spark pueda acceder a módulos internos de la JVM. Las tres se exportan para que estén disponibles en los subprocesos que lanza Make.
+
+**Targets**
+- `check-java`: verifica que Java 17 esté disponible ejecutando `java -version` y buscando "17" en la salida. Si no lo encuentra, falla con un mensaje de error.
+- `setup`: depende de `check-java`, imprime "Setup listo." como confirmación.
+- `compile`: depende de `check-java` y ejecuta `sbt compile`.
+- `run`: depende de `setup` y `compile`, ejecuta `sbt run` con los defaults de `CommandLineArgs`.
+- `mock`: igual que `run` pero pasa `--subscription-file ./data/local_subscriptions.json` como argumento fijo para apuntar al archivo de suscripciones locales en lugar de usar Reddit real.
+- `tests`: depende de `setup` y ejecuta `bash tests.sh` para correr la suite de tests de integración.
+
+El target por defecto es `run`.
+
+# Cambios en build.sbt
+Se agregaron:
+
+**flag `"--add-opens=java.base/java.nio=ALL-UNNAMED"`**
+
+Se introdujo siguiendo el modelo de build.sbt de Hello_world. Spark 4.1.1 usa reflection para acceder a paquetes internos de la JVM (java.nio, sun.security.action) que Java 17 bloquea por defecto con el sistema de módulos (JPMS). Se agregaron flags --add-opens para abrir explícitamente esos paquetes, permitiendo que Spark funcione sin modificar su código fuente.
+
+**flag `"--add-opens=java.base/sun.security.action=ALL-UNNAMED"`**
+
+Spark fue escrito antes de Java 9. Su SerializationDebugger usa reflection para inspeccionar objetos al momento de serializarlos — mira los campos, los tipos, etc. Para hacer eso con clases internas de la JVM, usa MethodHandles y reflection que en Java 8 funcionaban sin restricciones. En Java 17, esas mismas llamadas fallan con IllegalAccessException porque el módulo java.base no le da permiso a código externo de acceder a sun.security.action.
+
+El flag le dice a la JVM explícitamente: "abrí el paquete sun.security.action del módulo java.base para que cualquier código en módulos sin nombre pueda acceder a él con reflection". ALL-UNNAMED significa "cualquier código que no esté en un módulo nombrado" — que es exactamente donde cae Spark.
+
+**Dependencias `"org.apache.spark" %% "spark-core" % "4.1.1"` y `"org.apache.spark" %% "spark-sql" % "4.1.1"`**
+
+Agregan Spark como dependencia. `spark-core` provee el `SparkContext` y los RDDs. `spark-sql` provee `SparkSession`, que es el punto de entrada moderno para arrancar Spark.
