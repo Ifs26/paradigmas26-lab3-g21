@@ -96,10 +96,6 @@ object Main {
       "avgChars" -> avgChars
     )
 
-    // Print output
-    println(Formatters.formatProcessingStats(stats))
-    println()
-
     // Check if we have any posts to process
     if (filteredPosts.isEmpty) {
       println("Error: No valid posts downloaded after filtering")
@@ -148,6 +144,10 @@ object Main {
     filteredRDD.unpersist()  // ya no lo necesitamos más
 
     println(s"[Tiempo] Conteo de entidades: ${(t5 - t4) / 1000.0} segundos") //Tiempo de conteo de entidades (/1000 para convertir a segundos)
+
+    // Print output
+    println(Formatters.formatProcessingStats(stats))
+    println()
     
     println(Formatters.formatTypeStatsDistributed(entitiesList))
     println()
