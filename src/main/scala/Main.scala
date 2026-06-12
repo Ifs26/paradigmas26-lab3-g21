@@ -63,7 +63,6 @@ object Main {
     val t0 = System.currentTimeMillis()  //inicio de descarga de feeds
     val postsSuccess = postsRDD.count().toInt
     val t1 = System.currentTimeMillis() //fin de descarga de feeds
-    println(s"[Tiempo] Descarga de feeds: ${(t1 - t0) / 1000.0} segundos") //Tiempo de descarga de feeds (/1000 para convertir a segundos)
 
     val feedsSuccess = accFeedsSuccess.value.toInt
     val feedsFailed = accFeedsFailed.value.toInt
@@ -74,7 +73,7 @@ object Main {
     val t2 = System.currentTimeMillis() //inicio de filtrado de posts
     val filteredCount = filteredRDD.count().toInt
     val t3 = System.currentTimeMillis() //fin de filtrado de posts
-    println(s"[Tiempo] Filtrado de posts: ${(t3 - t2) / 1000.0} segundos") //Tiempo de filtrado de posts (/1000 para convertir a segundos)
+    
 
     postsRDD.unpersist()  // ya no lo necesitamos más
 
@@ -142,6 +141,8 @@ object Main {
 
     filteredRDD.unpersist()  // ya no lo necesitamos más
 
+    println(s"[Tiempo] Descarga de feeds: ${(t1 - t0) / 1000.0} segundos") //Tiempo de descarga de feeds (/1000 para convertir a segundos)
+    println(s"[Tiempo] Filtrado de posts: ${(t3 - t2) / 1000.0} segundos") //Tiempo de filtrado de posts (/1000 para convertir a segundos)
     println(s"[Tiempo] Conteo de entidades: ${(t5 - t4) / 1000.0} segundos") //Tiempo de conteo de entidades (/1000 para convertir a segundos)
 
     // Print output
